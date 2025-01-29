@@ -520,6 +520,7 @@ MACHINE_CONFIG_PODS_TO_COLLECT = [
     "machine-config-controller",
 ]
 BREW_REGISTERY_SOURCE = "brew.registry.redhat.io"
+QUAY_IO_STR = "quay.io"
 ICSP_FILE = "imageContentSourcePolicy.yaml"
 IDMS_FILE = "imageDigestMirrorSet.yaml"
 BASE_EXCEPTIONS_DICT: dict[type[Exception], list[str]] = {
