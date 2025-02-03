@@ -69,6 +69,7 @@ from utilities.constants import (
     KUBELET_READY_CONDITION,
     NET_UTIL_CONTAINER_IMAGE,
     OC_ADM_LOGS_COMMAND,
+    OS_FLAVOR_RHEL,
     PROMETHEUS_K8S,
     SANITY_TESTS_FAILURE,
     TIMEOUT_1MIN,
@@ -1535,4 +1536,18 @@ def verify_image_info(image_url, generated_pulled_secret, nodes_cpu_architecture
             f"oc image info {image_url} "
             f"--registry-config={generated_pulled_secret} --filter-by-os={nodes_cpu_architecture}"
         ),
+    )
+
+
+def assert_os_version_mismatch_in_vm(vm: utilities.virt.VirtualMachineForTests, expected_os: str) -> None:
+    vm_os = vm.ssh_exec.os.release_str.lower()
+    match = re.match(r"(?P<os_name>[a-z]+)(?:[.-]stream|\.)?(?P<os_ver>[0-9]+)?", expected_os)
+    if not match:
+        pytest.fail(f"Did not find matching os_name and os_ver for {expected_os}")
+    expected_os_name = match.group("os_name")
+    expected_os_ver = match.group("os_ver")
+    if expected_os_name == OS_FLAVOR_RHEL:
+        expected_os_name = "red hat"
+    assert re.match(rf"({expected_os_name}).*({expected_os_ver}).*", vm_os), (
+        f"Wrong VM OS, expected name: {expected_os_name}, ver: {expected_os_ver}, actual: {vm_os}"
     )
