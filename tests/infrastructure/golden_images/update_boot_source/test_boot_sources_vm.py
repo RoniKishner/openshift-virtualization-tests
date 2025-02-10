@@ -2,7 +2,6 @@ import logging
 
 import pytest
 from ocp_resources.data_source import DataSource
-from ocp_resources.persistent_volume_claim import PersistentVolumeClaim
 
 from utilities.infra import assert_os_version_mismatch_in_vm, validate_os_info_vmi_vs_linux_os
 from utilities.storage import data_volume_template_with_source_ref_dict
@@ -24,7 +23,9 @@ def data_source_from_data_import_cron(
     data_import_cron_matrix__function__,
 ):
     data_source = DataSource(name=[*data_import_cron_matrix__function__][0], namespace=golden_images_namespace.name)
-    data_source.wait_for_condition(condition=data_source.Condition.READY, status=data_source.Condition.Status.TRUE, timeout=5)
+    data_source.wait_for_condition(
+        condition=data_source.Condition.READY, status=data_source.Condition.Status.TRUE, timeout=5
+    )
     return data_source
 
 
