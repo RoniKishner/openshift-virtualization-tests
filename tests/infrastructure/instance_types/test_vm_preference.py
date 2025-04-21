@@ -68,9 +68,7 @@ def fedora_data_volume_template(dv_template_api, golden_images_fedora_data_sourc
     fedora_dv_template = data_volume_template_with_source_ref_dict(data_source=golden_images_fedora_data_source)
     if dv_template_api == "pvc":
         return pvc_api_adjustments(dv_template=fedora_dv_template)
-    else:
-        del fedora_dv_template["spec"]["storage"]["storageClassName"]
-        return fedora_dv_template
+    return fedora_dv_template
 
 
 @pytest.fixture()
