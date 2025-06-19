@@ -1,0 +1,67 @@
+name: Split PR on Comment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  split-pr:
+    if: github.event.comment.body == '/split-pr'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.issue.number }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch PR and checkout
+        run: |
+          PR_NUMBER=$(jq --raw-output .issue.number "$GITHUB_EVENT_PATH")
+          gh pr checkout $PR_NUMBER
+
+      - name: List changed files
+        id: changed_files
+        run: |
+          FILES=$(git diff --name-only origin/main...HEAD)
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+
+      # Optional: Install Cursor CLI (if one exists)
+      # - name: Install Cursor CLI
+      #   run: |
+      #     curl -sSL https://... | sh
+
+      - name: Improve files using Cursor (simulated)
+        run: |
+          for f in ${{ steps.changed_files.outputs.files }}; do
+            if [ -f "$f" ]; then
+              echo -e "#RONI\n$(cat "$f")" > "$f"
+            fi
+          done
+
+      - name: Create new branch
+        run: |
+          NEW_BRANCH="cursor-improvements-${{ github.run_id }}"
+          git checkout -b $NEW_BRANCH
+          git add .
+          git commit -m "Apply code improvements using Cursor"
+          git push origin $NEW_BRANCH
+
+      - name: Create new PR
+        run: |
+          gh pr create \
+          --base main \
+          --head "$NEW_BRANCH" \
+          --title "Cursor Improvements" \
+          --body "This PR includes code improvements to files changed in #$PR_NUMBER using Cursor."
+
