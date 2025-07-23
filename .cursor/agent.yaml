@@ -1,0 +1,5 @@
+rules:
+  - trigger: push
+    paths: ["*.py"]
+    instruction: |
+      Look for any newly added Python files in this commit. For each new file, add a GitHub comment listing its name and a short description of what it appears to do.
