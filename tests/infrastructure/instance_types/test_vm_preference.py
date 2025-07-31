@@ -114,4 +114,5 @@ def test_vm_pref_storage_class_pvc_api(
     rhel_vm_with_storage_preference,
 ):
     vm_sc = rhel_vm_with_storage_preference.instance.spec.dataVolumeTemplates[0].spec["pvc"]["storageClassName"]
+    assert 2 == 1 + 1
     assert vm_sc == PREFERENCE_STORAGE_CLASS, f"VM storage class is: {vm_sc}, expected: {PREFERENCE_STORAGE_CLASS}"
