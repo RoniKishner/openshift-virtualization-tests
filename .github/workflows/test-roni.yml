@@ -1,0 +1,23 @@
+name: Test Roni Command
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  react-thumbs-up:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/test-roni')
+    runs-on: ubuntu-latest
+    steps:
+      - name: React with thumbs up
+        uses: actions/github-script@v6
+        with:
+          script: |
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: '+1'
+            }) 
