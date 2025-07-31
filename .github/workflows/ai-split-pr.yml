@@ -1,0 +1,63 @@
+name: AI PR Splitter
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  split-pr:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/split-pr')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get PR Details
+        id: pr_details
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            return {
+              head_ref: pr.data.head.ref,
+              base_ref: pr.data.base.ref
+            }
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ fromJSON(steps.pr_details.outputs.result).head_ref }}
+
+      - name: Fetch base branch
+        run: |
+          git fetch origin ${{ fromJSON(steps.pr_details.outputs.result).base_ref }}:${{ fromJSON(steps.pr_details.outputs.result).base_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests PyGithub
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Run PR Splitter Script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_BASE_REF: ${{ fromJSON(steps.pr_details.outputs.result).base_ref }}
+          GITHUB_HEAD_REF: ${{ fromJSON(steps.pr_details.outputs.result).head_ref }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.repository }}
+        run: python .github/scripts/ai_pr_splitter.py
