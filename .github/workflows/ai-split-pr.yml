@@ -1,0 +1,85 @@
+name: AI PR Splitter
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  split-pr:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/split-pr')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get PR Details
+        id: pr_details
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |-
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            console.log(`PR #${context.issue.number} data:`, {
+              head_ref: pr.data.head.ref,
+              base_ref: pr.data.base.ref
+            });
+            
+            core.setOutput('head_ref', pr.data.head.ref);
+            core.setOutput('base_ref', pr.data.base.ref);
+
+      - name: Add reaction to comment
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          script: |-
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: '+1'
+            });
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.pr_details.outputs.head_ref }}
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Fetch base branch
+        run: |
+          git fetch origin ${{ steps.pr_details.outputs.base_ref }}
+          git fetch origin ${{ steps.pr_details.outputs.head_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests PyGithub google-generativeai
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Run PR Splitter Script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BASE_REF: ${{ steps.pr_details.outputs.base_ref }}
+          HEAD_REF: ${{ steps.pr_details.outputs.head_ref }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.repository }}
+
+        run: |
+          python .github/scripts/ai_pr_splitter.py
