@@ -4,3 +4,4 @@ TEST_START_VM_TEST_NAME = f"{TEST_CLASS_CREATION_VALIDATION}::test_start_vm"
 
 TESTS_CLASS_MIGRATION = "TestVMMigrationAndState"
 TESTS_MIGRATE_VM = f"{TESTS_CLASS_MIGRATION}::test_migrate_vm"
+TESTS_MODULE_IDENTIFIER = "TestCommonInstancetypeRhel"
