@@ -12,7 +12,6 @@ from tests.storage.constants import (
     HPP_STORAGE_CLASSES,
     HTTP,
     QUAY_FEDORA_CONTAINER_IMAGE,
-    REGISTRY_STR,
 )
 from tests.storage.utils import (
     clean_up_multiprocess,
@@ -31,7 +30,7 @@ from utilities.constants import (
 from utilities.exceptions import ProcessWithException
 from utilities.infra import NON_EXIST_URL
 from utilities.network import network_device, network_nad
-from utilities.storage import create_dv, sc_volume_binding_mode_is_wffc
+from utilities.storage import REGISTRY_STR, create_dv, sc_volume_binding_mode_is_wffc
 from utilities.virt import VirtualMachineForTests
 
 LOGGER = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ import pytest
 from kubernetes.client.rest import ApiException
 from ocp_resources.datavolume import DataVolume
 
-from tests.storage.constants import QUAY_FEDORA_CONTAINER_IMAGE, REGISTRY_STR
+from tests.storage.constants import QUAY_FEDORA_CONTAINER_IMAGE
 from tests.storage.utils import (
     create_vm_from_dv,
     get_importer_pod,
@@ -12,7 +12,7 @@ from tests.storage.utils import (
 )
 from utilities.constants import OS_FLAVOR_FEDORA, TIMEOUT_5MIN, Images
 from utilities.ssp import wait_for_condition_message_value
-from utilities.storage import ErrorMsg, check_disk_count_in_vm, create_dv
+from utilities.storage import REGISTRY_STR, ErrorMsg, check_disk_count_in_vm, create_dv
 from utilities.virt import running_vm
 
 pytestmark = pytest.mark.post_upgrade

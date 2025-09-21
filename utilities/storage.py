@@ -57,6 +57,7 @@ DATA_IMPORT_CRON_SUFFIX = "-image-cron"
 RESOURCE_MANAGED_BY_DATA_IMPORT_CRON_LABEL = f"{NamespacedResource.ApiGroup.CDI_KUBEVIRT_IO}/dataImportCron"
 HOSTPATH_CSI = "hostpath-csi"
 HPP_CSI = "hpp-csi"
+REGISTRY_STR = "registry"
 
 
 LOGGER = logging.getLogger(__name__)
