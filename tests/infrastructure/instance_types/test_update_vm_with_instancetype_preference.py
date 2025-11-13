@@ -44,7 +44,8 @@ def get_mismatched_fields_list(
 def vm_cluster_instance_type_to_update(unprivileged_client):
     cluster_instancetype_list = list(
         VirtualMachineClusterInstancetype.get(
-            client=unprivileged_client, label_selector="instancetype.kubevirt.io/memory=4Gi, instancetype.kubevirt.io/cpu=1"
+            client=unprivileged_client,
+            label_selector="instancetype.kubevirt.io/memory=4Gi, instancetype.kubevirt.io/cpu=1",
         )
     )
     assert cluster_instancetype_list, "No cluster instance type found on the cluster"
