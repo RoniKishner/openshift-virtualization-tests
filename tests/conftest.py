@@ -72,7 +72,14 @@ from timeout_sampler import TimeoutSampler
 
 import utilities.hco
 from tests.utils import download_and_extract_tar, update_cluster_cpu_model
-from utilities.artifactory import get_artifactory_header, get_http_image_url, get_test_artifact_server_url
+from utilities.artifactory import (
+    cleanup_artifactory_secret_and_config_map,
+    get_artifactory_config_map,
+    get_artifactory_header,
+    get_artifactory_secret,
+    get_http_image_url,
+    get_test_artifact_server_url,
+)
 from utilities.bitwarden import get_cnv_tests_secret_by_name
 from utilities.cluster import cache_admin_client
 from utilities.constants import (
@@ -2899,3 +2906,28 @@ def application_aware_resource_quota(admin_client, namespace):
         hard=ARQ_QUOTA_HARD_SPEC,
     ) as arq:
         yield arq
+
+
+@pytest.fixture(scope="module")
+def windows_data_volume_template(
+    unprivileged_client,
+    namespace,
+):
+    secret = get_artifactory_secret(namespace=namespace.name)
+    cert = get_artifactory_config_map(namespace=namespace.name)
+    win_dv = DataVolume(
+        client=unprivileged_client,
+        name="win-virtio-wsl2-dv",
+        namespace=namespace.name,
+        api_name="storage",
+        source="registry",
+        size=Images.Windows.CONTAINER_DISK_DV_SIZE,
+        storage_class=py_config["default_storage_class"],
+        # url=f"{get_test_artifact_server_url(schema='registry')}/{os_params[CONTAINER_DISK_IMAGE_PATH_STR]}",
+        url=f"{get_test_artifact_server_url(schema='registry')}/docker/windows-qe/win_11:virtio",
+        secret=secret,
+        cert_configmap=cert.name,
+    )
+    win_dv.to_dict()
+    yield win_dv
+    cleanup_artifactory_secret_and_config_map(artifactory_secret=secret, artifactory_config_map=cert)

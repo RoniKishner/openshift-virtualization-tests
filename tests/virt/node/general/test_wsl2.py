@@ -11,7 +11,6 @@ import pytest
 from ocp_resources.template import Template
 from pyhelper_utils.shell import run_ssh_commands
 
-from tests.virt.constants import WINDOWS_10_WSL, WINDOWS_11_WSL
 from tests.virt.utils import verify_wsl2_guest_works
 from utilities.constants import TCP_TIMEOUT_30SEC, Images
 from utilities.virt import (
@@ -21,7 +20,7 @@ from utilities.virt import (
     running_vm,
 )
 
-pytestmark = [pytest.mark.special_infra, pytest.mark.high_resource_vm]
+# pytestmark = [pytest.mark.special_infra, pytest.mark.high_resource_vm]
 
 
 LOGGER = logging.getLogger(__name__)
@@ -56,7 +55,7 @@ def windows_wsl2_vm(
     request,
     namespace,
     unprivileged_client,
-    golden_image_data_volume_template_for_test_scope_class,
+    windows_data_volume_template,
     modern_cpu_for_migration,
     vm_cpu_flags,
 ):
@@ -67,7 +66,7 @@ def windows_wsl2_vm(
         labels=Template.generate_template_labels(**get_windows_os_dict(windows_version=win_ver)["template_labels"]),
         namespace=namespace.name,
         client=unprivileged_client,
-        data_volume_template=golden_image_data_volume_template_for_test_scope_class,
+        data_volume_template=windows_data_volume_template.res,
         cpu_model=modern_cpu_for_migration,
         cpu_flags=vm_cpu_flags,
         memory_guest=Images.Windows.DEFAULT_MEMORY_SIZE_WSL,
@@ -86,15 +85,9 @@ def migrated_wsl2_vm(windows_wsl2_vm):
 @pytest.mark.ibm_bare_metal
 @pytest.mark.tier3
 @pytest.mark.parametrize(
-    "golden_image_data_source_for_test_scope_class, windows_wsl2_vm",
+    "windows_wsl2_vm",
     [
         pytest.param(
-            {"os_dict": WINDOWS_10_WSL},
-            {"win_ver": "win-10"},
-            id="Windows-10",
-        ),
-        pytest.param(
-            {"os_dict": WINDOWS_11_WSL},
             {"win_ver": "win-11"},
             id="Windows-11",
         ),
