@@ -1,3 +1,5 @@
+import base64
+import json
 import logging
 import os
 import ssl
@@ -14,6 +16,7 @@ from utilities.data_utils import base64_encode_str
 LOGGER = logging.getLogger(__name__)
 
 ARTIFACTORY_SECRET_NAME = "cnv-tests-artifactory-secret"
+ARTIFACTORY_IMAGE_PULL_SECRET_NAME = "cnv-tests-artifactory-secret-image-pull"
 BASE_ARTIFACTORY_LOCATION = "artifactory/cnv-qe-server-local"
 
 
@@ -141,6 +144,59 @@ def get_artifactory_config_map(
     if not artifactory_cm.exists:
         artifactory_cm.deploy()
     return artifactory_cm
+
+
+def get_artifactory_image_pull_secret(
+    namespace: str,
+) -> Secret:
+    """
+    Create or retrieve an Artifactory image pull secret in the specified namespace.
+
+    Creates a Kubernetes Secret of type kubernetes.io/dockerconfigjson containing Artifactory
+    registry credentials for pulling container images. The secret can be used as an imagePullSecret
+    in ServiceAccounts or Pods. If the secret already exists in the namespace, it returns the
+    existing secret. Otherwise, it creates and deploys a new secret.
+
+    Args:
+        namespace (str): The Kubernetes namespace where the secret should be created or retrieved.
+
+    Returns:
+        Secret: The Artifactory image pull Secret resource object.
+
+    Raises:
+        KeyError: If ARTIFACTORY_USER or ARTIFACTORY_TOKEN environment variables are not set.
+        TimeoutExpiredError: If artifact server connectivity check fails.
+    """
+    registry_url = get_test_artifact_server_url(schema="registry")
+    artifactory_user = os.environ["ARTIFACTORY_USER"]
+    artifactory_token = os.environ["ARTIFACTORY_TOKEN"]
+
+    # Create dockerconfigjson structure
+    auth_string = base64.b64encode(f"{artifactory_user}:{artifactory_token}".encode()).decode()
+    dockerconfigjson = {
+        "auths": {
+            registry_url: {
+                "username": artifactory_user,
+                "password": artifactory_token,
+                "auth": auth_string,
+            }
+        }
+    }
+
+    # Base64 encode the JSON string
+    dockerconfigjson_encoded = base64.b64encode(json.dumps(dockerconfigjson).encode()).decode()
+
+    artifactory_image_pull_secret = Secret(
+        name=ARTIFACTORY_IMAGE_PULL_SECRET_NAME,
+        namespace=namespace,
+        body={
+            "type": "kubernetes.io/dockerconfigjson",
+            "data": {".dockerconfigjson": dockerconfigjson_encoded},
+        },
+    )
+    if not artifactory_image_pull_secret.exists:
+        artifactory_image_pull_secret.deploy()
+    return artifactory_image_pull_secret
 
 
 def cleanup_artifactory_secret_and_config_map(

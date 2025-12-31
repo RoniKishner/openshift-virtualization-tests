@@ -1,13 +1,21 @@
 import pytest
+
+from ocp_resources.cdi import CDI
+from ocp_resources.data_import_cron import DataImportCron
+from ocp_resources.hyperconverged import HyperConverged
 from ocp_resources.resource import ResourceEditor
+from ocp_resources.ssp import SSP
 from ocp_resources.virtual_machine_cluster_instancetype import (
     VirtualMachineClusterInstancetype,
 )
 from ocp_resources.virtual_machine_cluster_preference import (
     VirtualMachineClusterPreference,
 )
+from utilities.artifactory import get_test_artifact_server_url, get_artifactory_secret, get_artifactory_config_map, \
+    cleanup_artifactory_secret_and_config_map, get_artifactory_image_pull_secret
 
 from utilities.constants import Images
+from utilities.hco import ResourceEditorValidateHCOReconcile
 from utilities.virt import VirtualMachineForTests
 
 
@@ -104,3 +112,67 @@ def test_add_reference_to_existing_vm(
         preference_object_dict=rhel_9_vm_cluster_preference.instance.to_dict(),
     )
     assert not mismatch_list, f"Some references were not updated in the VM: {mismatch_list}"
+
+
+def test_roni(admin_client, golden_images_namespace):
+    from ocp_resources.resource import ResourceEditor, get_client
+    from ocp_resources.service_account import ServiceAccount
+
+    default_sa = ServiceAccount(name="default", namespace=golden_images_namespace.name, client=get_client())
+    existing_secrets = default_sa.instance.get("imagePullSecrets", [])
+    existing_secret_names = {secret_ref.get("name") for secret_ref in existing_secrets}
+
+    if "cnv-tests-artifactory-secret-image-pull" not in existing_secret_names:
+        all_secrets = existing_secrets + [{"name": "cnv-tests-artifactory-secret-image-pull"}]
+        ResourceEditor(patches={default_sa: {"imagePullSecrets": all_secrets}}).update()
+
+    win2k22_template = {
+        "metadata": {
+            "annotations": {
+                "cdi.kubevirt.io/storage.bind.immediate.requested": "true",
+            },
+            "labels": {"kubevirt.io/dynamic-credentials-support": "true"},
+            "name": "win2k22-image-cron",
+        },
+        "spec": {
+            "managedDataSource": "win2k22",
+            "schedule": "34 1/12 * * *",
+            "template": {
+                "metadata": {},
+                "spec": {
+                    "source": {
+                        "registry": {
+                            "pullMethod": "node",
+                            "url": f"{get_test_artifact_server_url(schema='registry')}/{Images.Windows.DOCKER_IMAGE_DIR}/windows2k22-container-disk:4.99",
+                            "certConfigMap": "artifactory-configmap",
+                            "secretRef": "cnv-tests-artifactory-secret",
+                        }
+                    },
+                    "storage": {"resources": {"requests": {"storage": Images.Windows.CONTAINER_DISK_DV_SIZE}}},
+                },
+            },
+        },
+    }
+
+    # If you need to append to existing templates, get them first:
+    hco = HyperConverged(name="kubevirt-hyperconverged", namespace="openshift-cnv")
+    existing_templates = hco.instance.spec.get("dataImportCronTemplates", [])
+    all_templates = existing_templates + [win2k22_template]
+
+    with ResourceEditorValidateHCOReconcile(
+        patches={hco: {"spec": {"dataImportCronTemplates": all_templates}}},
+        list_resource_reconcile=[SSP, CDI],
+    ):
+        breakpoint()
+        artifactory_secret = get_artifactory_secret(namespace=golden_images_namespace.name)
+        artifactory_config_map = get_artifactory_config_map(namespace=golden_images_namespace.name)
+        image_pull_secret = get_artifactory_image_pull_secret(namespace=golden_images_namespace.name)
+        win_2k22_dic = DataImportCron(name="win2k22-image-cron", namespace=golden_images_namespace.name, client=admin_client)
+        win_2k22_dic.clean_up()
+        breakpoint()
+        assert True
+
+    cleanup_artifactory_secret_and_config_map(
+        artifactory_secret=artifactory_secret, artifactory_config_map=artifactory_config_map
+    )
+    image_pull_secret.clean_up()
