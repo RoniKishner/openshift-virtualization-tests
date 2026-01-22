@@ -107,6 +107,7 @@ dev = [
 ]
 
 [tool.uv.sources]
+openshift-python-wrapper = { git = "https://github.com/RedHatQE/openshift-python-wrapper.git", rev = "pull/2635/head" }
 
 # Utilities Unit Testing Configuration
 [tool.pytest.ini_options]
