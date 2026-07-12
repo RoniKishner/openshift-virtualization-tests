@@ -17,20 +17,15 @@ from tests.infrastructure.golden_images.constants import (
     PVC_NOT_FOUND_ERROR,
 )
 from tests.utils import get_parameters_from_template
-from utilities.artifactory import (
-    cleanup_artifactory_secret_and_config_map,
-    get_artifactory_config_map,
-    get_artifactory_secret,
-    get_http_image_url,
-)
 from utilities.constants import Images
 from utilities.constants.hco import DATA_SOURCE_NAME
 from utilities.constants.images import DEFAULT_FEDORA_REGISTRY_URL
 from utilities.constants.pytest import QUARANTINED
-from utilities.constants.storage import BIND_IMMEDIATE_ANNOTATION
+from utilities.constants.storage import BIND_IMMEDIATE_ANNOTATION, REGISTRY_STR
 from utilities.constants.timeouts import (
+    TIMEOUT_1MIN,
     TIMEOUT_5MIN,
-    TIMEOUT_10MIN,
+    TIMEOUT_10MIN, TIMEOUT_30SEC,
 )
 from utilities.exceptions import ResourceValueError
 from utilities.ssp import wait_for_condition_message_value
@@ -47,20 +42,13 @@ pytestmark = pytest.mark.post_upgrade
 
 @contextmanager
 def dv_for_data_source(name, data_source, admin_client):
-    artifactory_secret = get_artifactory_secret(namespace=data_source.namespace)
-    artifactory_config_map = get_artifactory_config_map(namespace=data_source.namespace)
     with DataVolume(
         client=admin_client,
         name=name,
         namespace=data_source.namespace,
-        source_dict=construct_datavolume_source_dict(
-            # underlying OS is not relevant
-            source="http",
-            url=get_http_image_url(image_directory=Images.Cirros.DIR, image_name=Images.Cirros.QCOW2_IMG),
-            secret_name=artifactory_secret.name,
-            cert_configmap_name=artifactory_config_map.name,
-        ),
-        size=Images.Cirros.DEFAULT_DV_SIZE,
+        # underlying OS is not relevant
+        source_dict=construct_datavolume_source_dict(source=REGISTRY_STR, url=DEFAULT_FEDORA_REGISTRY_URL),
+        size=Images.Fedora.DEFAULT_DV_SIZE,
         storage_class=py_config["default_storage_class"],
         annotations=BIND_IMMEDIATE_ANNOTATION,
         api_name="storage",
@@ -71,9 +59,6 @@ def dv_for_data_source(name, data_source, admin_client):
             expected_message=DATA_SOURCE_READY_FOR_CONSUMPTION_MESSAGE,
         )
         yield dv
-    cleanup_artifactory_secret_and_config_map(
-        artifactory_secret=artifactory_secret, artifactory_config_map=artifactory_config_map
-    )
 
 
 def opt_in_status_str(opt_in):
@@ -100,7 +85,7 @@ def wait_for_data_source_reconciliation_after_update(
 def wait_for_data_source_unchanged_referenced_volume(data_source, volume_name):
     try:
         for sample in TimeoutSampler(
-            wait_timeout=TIMEOUT_10MIN,
+            wait_timeout=TIMEOUT_30SEC,
             sleep=5,
             func=lambda: data_source.source.name != volume_name,
         ):
@@ -265,8 +250,8 @@ def data_sources_from_templates_scope_function(admin_client, data_sources_names_
 
 
 @pytest.fixture()
-def data_source_by_name_scope_function(request, unprivileged_client, golden_images_namespace):
-    return DataSource(client=unprivileged_client, name=request.param, namespace=golden_images_namespace.name)
+def data_source_by_name_scope_function(request, admin_client, golden_images_namespace):
+    return DataSource(client=admin_client, name=request.param, namespace=golden_images_namespace.name)
 
 
 @pytest.fixture(scope="class")
