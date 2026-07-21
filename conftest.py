@@ -103,6 +103,7 @@ pytest_plugins = [
     "tests.fixtures.storage.storage_classes",
     "tests.fixtures.images.golden_images",
     "tests.fixtures.storage.data_volumes",
+    "tests.fixtures.infrastructure.vm_template",
 ]
 
 LOGGER = logging.getLogger(__name__)
