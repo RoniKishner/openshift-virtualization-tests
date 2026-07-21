@@ -12,9 +12,13 @@ Markers:
     - tier2
 """
 
-import pytest
+import logging
 
-__test__ = False
+import pytest
+from kubernetes.dynamic.exceptions import UnprocessibleEntityError
+from ocp_resources.virtual_machine_template import VirtualMachineTemplate
+
+LOGGER = logging.getLogger(__name__)
 
 
 class TestVMTemplateAdmission:
@@ -22,11 +26,12 @@ class TestVMTemplateAdmission:
     Tests for VirtualMachineTemplate admission behavior under defaulted parameters.
 
     Preconditions:
-        - OpenShift Virtualization cluster with common instance types deployed
+        - OpenShift Virtualization cluster with enabled Template feature gate
     """
 
+    @pytest.mark.smoke
     @pytest.mark.polarion("CNV-16314")
-    def test_valid_template_with_defaulted_parameters_accepted(self):
+    def test_valid_template_with_defaulted_parameters_accepted(self, valid_vm_template):
         """
         Test that a VirtualMachineTemplate whose default parameter values resolve to a
         valid VM definition is accepted by the cluster.
@@ -44,9 +49,12 @@ class TestVMTemplateAdmission:
         Markers:
             - smoke
         """
+        assert valid_vm_template.exists, (
+            f"VirtualMachineTemplate {valid_vm_template.name} should have been created successfully"
+        )
 
     @pytest.mark.polarion("CNV-16315")
-    def test_invalid_by_default_template_rejected(self):
+    def test_invalid_by_default_template_rejected(self, unprivileged_client, namespace):
         """
         [NEGATIVE] Test that a VirtualMachineTemplate whose default parameter values would
         always produce an invalid VM definition is rejected by the admission webhook.
@@ -56,6 +64,32 @@ class TestVMTemplateAdmission:
                an invalid VM definition
 
         Expected:
-            - VirtualMachineTemplate creation is rejected with an admission error indicating
+            - VirtualMachineTemplate creation is rejected with an invalid-pattern error indicating
               the template would always produce an invalid VM
         """
+        with pytest.raises(UnprocessibleEntityError, match="invalid-pattern"):
+            with VirtualMachineTemplate(
+                client=unprivileged_client,
+                name="invalid-by-default-template",
+                namespace=namespace.name,
+                parameters=[
+                    {
+                        "name": "NAME",
+                        "generate": "expression",
+                        "from": "invalid-pattern",
+                        "description": "Unique VM name",
+                    },
+                ],
+                virtual_machine={
+                    "metadata": {"name": "${NAME}"},
+                    "spec": {
+                        "runStrategy": "Halted",
+                        "template": {
+                            "spec": {
+                                "domain": {"devices": {}},
+                            }
+                        },
+                    },
+                },
+            ):
+                pytest.fail("VirtualMachineTemplate creation should have been rejected by admission")
