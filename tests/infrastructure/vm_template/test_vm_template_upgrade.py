@@ -16,6 +16,7 @@ Markers:
 """
 
 import pytest
+from ocp_resources.virtual_machine_cluster_instancetype import VirtualMachineClusterInstancetype
 
 from tests.infrastructure.vm_template.utils import process_and_create_vm
 from tests.upgrade_params import (
@@ -23,8 +24,10 @@ from tests.upgrade_params import (
     IUO_UPGRADE_TEST_ORDERING_NODE_ID,
     VM_TEMPLATE_PRE_UPGRADE_NODE_ID_PREFIX,
 )
+from utilities.constants import Images
 from utilities.constants.pytest import DEPENDENCY_SCOPE_SESSION
 from utilities.constants.timeouts import TIMEOUT_1MIN
+from utilities.virt import VirtualMachineForTests, running_vm
 
 pytestmark = [
     pytest.mark.upgrade,
@@ -225,3 +228,21 @@ class TestVMTemplatePostUpgrade:
             finally:
                 if vm is not None:
                     vm.clean_up()
+
+
+@pytest.fixture(scope="session")
+def my_vm_for_test(unprivileged_client, namespace):
+    with VirtualMachineForTests(
+        client=unprivileged_client,
+        name="rhel-vm-test-rabbit",
+        namespace=namespace.name,
+        image=Images.Rhel.RHEL9_REGISTRY_GUEST_IMG,
+        vm_instance_type=VirtualMachineClusterInstancetype(client=unprivileged_client, name="u1.small"),
+    ) as vm:
+        running_vm(vm=vm, wait_for_interfaces=False, check_ssh_connectivity=False)
+        yield vm
+
+
+@pytest.mark.polarion("CNV-0000")
+def test_roni(my_vm_for_test):
+    assert my_vm_for_test.name == "rhel-vm-test-rabbit"
