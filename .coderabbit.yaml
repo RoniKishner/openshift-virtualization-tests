@@ -144,52 +144,44 @@ reviews:
           If any required section is absent, or `What this PR does / why we need it:` has no content,
           flag it as HIGH severity and ask the author to restore the missing template section(s).
 
-      - name: "New test traceability"
+      - name: "STP link required"
         mode: error
         instructions: |
-          Check ONLY newly added product test functions/methods named `test_*` under
-          `tests/`, in new or existing files. SKIP `utilities/unittests/`.
+          Check ONLY code that is newly added (not modified) in this PR's diff.
+          SKIP this check entirely for files under `utilities/unittests/` — unit tests
+          do not require STP/RFE/Jira links.
 
-          EACH test's OWN function/method docstring MUST contain an exact, case-sensitive
-          `STP: <URL>` line when an STP exists. If no STP exists, require
-          `Jira: <issue URL>` instead (Jira/RFE issue, never a support case).
-          Search the linked design-docs repository before accepting the no-STP fallback.
-          Module/class-only links, historical `RFE:` labels, and
-          `@pytest.mark.polarion` do NOT satisfy a new test's traceability requirement.
+          This applies to two cases:
+          A) A newly added test file (test_*.py) under `tests/`
+          B) A newly added test function (def test_*) in an existing test file under `tests/`
 
-          A `Jira:` line MUST also contain `# <skip-jira-utils-check>` on the same line
-          so the jira-utils checker ignores the traceability reference:
-          `Jira: https://redhat.atlassian.net/browse/CNV-87822  # <skip-jira-utils-check>`
-          The skip marker is not required for `STP:` lines. Flag invalid or missing
-          traceability, including a missing Jira skip marker, as HIGH severity.
-          Do not impose the new syntax on unrelated historical tests.
-          Pass if no product test functions/methods are newly added.
+          For each case, at least one of the following MUST appear in the
+          module, class, or test function docstring:
+          - A line with "STP:" followed by a URL
+          - A line with "RFE:" followed by an issue tracker URL
+          - A line with "Jira:" followed by an issue tracker URL
 
-      - name: "Manual STD lifecycle"
-        mode: error
-        instructions: |
-          Check newly added or directly modified product test functions/methods under
-          `tests/`, plus unchanged placeholder siblings whose effective `__test__`
-          suppression is affected by a changed class/module assignment or deletion. SKIP
-          `utilities/unittests/`; do not audit unrelated unchanged historical tests.
-          Each docstring-only STD placeholder in scope MUST directly declare
-          `@pytest.mark.manual` and have effective `__test__ = False` at function,
-          containing class, or module level. `manual` classifies the test but does NOT
-          prevent collection. Automated tests MUST remove both `manual` and effective
-          `__test__ = False`. When partially automating a class/module, inspect every
-          affected sibling even when its function body is unchanged; every remaining
-          placeholder must retain direct `manual` and effective suppression until automated.
-          Other planned markers may remain in Phase 1 `Markers:` docstrings and become
-          real decorators/pytestmark only during Phase 2 automation.
+          If a module-level or class-level STP link already exists in the file,
+          newly added test functions in that same file are considered covered.
+          The @pytest.mark.polarion decorator alone does NOT satisfy this requirement.
+
+          **Jira skip-marker enforcement:**
+          When a `Jira:` line appears in a test docstring for traceability, it MUST
+          also include `# <skip-jira-utils-check>` as an inline comment on the same line.
+          This is required so the project's jira-utils checker skips traceability references.
+          - Correct:   `Jira: https://redhat.atlassian.net/browse/CNV-87822  # <skip-jira-utils-check>`
+          - Incorrect: `Jira: https://redhat.atlassian.net/browse/CNV-80580`
+          This does NOT apply to `STP:` or `RFE:` lines — only `Jira:` lines need the marker.
+          Flag a missing `# <skip-jira-utils-check>` on a `Jira:` line as HIGH severity.
+
+          Pass if no new test files and no new test functions are added in this PR.
 
       - name: "STP scenario coverage"
         mode: error
         instructions: |
           Apply when this PR adds, modifies, or deletes `test_*.py` under `tests/` that
-          reference an `STP:`, `Jira:`, or `RFE:` URL in a module,
-          class, or test docstring. SKIP `utilities/unittests/`.
-          For legacy modifications/deletions, continue recognizing historical labels and
-          inherited module/class links; do not bulk-impose the new-test syntax.
+          reference an `STP:`, `Jira:`, or `RFE:` URL in a module, class, or test docstring.
+          SKIP `utilities/unittests/`.
 
           **Behavior depends on traceability type:**
 
@@ -315,6 +307,77 @@ reviews:
     tflint:
       enabled: false
 
+  post_merge_actions:
+    - name: "Document Learnings added comments after merge"
+      enabled: true
+      prompt: |
+        ALWAYS APPLY THIS ACTION. Keep its walkthrough checkbox checked by
+        default on every pull request.
+
+        "Learnings added" headings absence at review time must NEVER cause
+        this action to be unchecked or omitted. Evaluate whether work is
+        needed only at merge time, using the final PR conversation state.
+
+        At merge time, scan every CodeRabbit-authored "Learnings added"
+        heading on this merged PR in all three places GitHub stores review
+        text:
+        - top-level conversation comments
+        - inline review comments (Files changed)
+        - pull request review bodies (the summary body of a submitted review)
+
+        A comment or review body counts as a "Learnings added" item only if
+        the phrase "Learnings added" appears as a heading. Do NOT count
+        mid-sentence mentions.
+
+        Acknowledgment depends on comment type:
+
+        - Inline review comments (Files changed): skip the learning only if a
+          human (not a bot) posted a direct reply AFTER that "Learnings added"
+          comment in the SAME review thread. A human comment that appears
+          before the "Learnings added" comment does NOT count as
+          acknowledgment, still document that learning.
+        - Top-level conversation comments and pull request review bodies: a
+          later human comment in the PR conversation is NOT a reply to that
+          learning and does NOT count as acknowledgment. Treat them as
+          unacknowledged and document them.
+
+        Do NOT treat other review threads, or unrelated later human comments,
+        as acknowledgment of an inline learning.
+
+        For each remaining "Learnings added" comment, extract only the
+        learning text (stop at the next Markdown heading or known footer
+        such as "Learnings used", "Note: Learnings are effective",
+        "Review thread resolved", "You are interacting with an AI system",
+        or "</details>"). Skip empty or whitespace-only sections.
+
+        Analyze each remaining learning against the pull request context.
+        Document every remaining learning.
+
+        For every remaining learning:
+        1. Update or append that guideline to AGENTS.md. Skip it if an
+           equivalent rule is already documented there.
+        2. If that learning applies to a specific directory or area
+           (for example tests/**), also inspect .coderabbit.yaml at the root
+           and update reviews.path_instructions or relevant configuration
+           for that path.
+
+        Apply all of those text modifications in the sandbox. If the sandbox
+        diff is empty (every remaining learning was already documented, there
+        were no file changes, there were no qualifying "Learnings added"
+        headings, or all remaining learnings were acknowledged in the same
+        inline review thread), do not open a follow-up PR; report that no
+        update was needed.
+        Otherwise open ONE follow-up pull request against the default branch
+        for this merged PR. Include every remaining (unacknowledged) learning
+        from this merge in that single PR. Put a link to this merged PR in
+        the follow-up PR body.
+        If follow-up PR creation fails, report the failure in the post-merge
+        result comment and do not claim success.
+
+        Do not duplicate rules that are already documented. Do not invent
+        rules that were not in those learnings. Keep edits minimal and in the
+        existing style of AGENTS.md and .coderabbit.yaml.
+
 chat:
   auto_reply: true
 
@@ -325,21 +388,16 @@ knowledge_base:
     # Link to design-docs repo for STP ↔ test traceability
     - repository: "RedHatQE/openshift-virtualization-tests-design-docs"
       instructions: |
-        STPs under stps/<sig>/ define scenarios and acceptance criteria.
+        Contains Software Test Plans (STPs) under stps/<sig>/ defining
+        test requirements, scenarios, and acceptance criteria.
 
         STRICT ENFORCEMENT (STD and test implementation PRs):
         - CRITICAL: Every STD PR MUST cover ALL STP scenarios, except
           explicitly excluded ones with justification and follow-up
           Jira link. Missing scenarios block merge.
-        - CRITICAL: Every new product test under `tests/` MUST contain exact
-          `STP: <URL>` in its own function/method docstring when an STP exists, or
-          `Jira: <issue URL>` only when none exists (Jira/RFE issue, not a support case).
-          Search this repository before accepting the Jira fallback. Inherited module/class
-          links do not count. Jira lines also require `# <skip-jira-utils-check>` inline.
-        - CRITICAL: Each docstring-only STD test under `tests/` MUST directly
-          declare `@pytest.mark.manual` and have effective `__test__ = False`.
-          Manual classifies but does not suppress collection. Remove both when automated.
-          Other planned Phase 1 markers remain in docstrings until automation.
+        - CRITICAL: Every new feature test MUST link to its STP (or
+          Jira/RFE if no STP exists) in module/class/test docstring.
+          Missing traceability links block merge.
         - HIGH: STD preconditions, steps, and expected results MUST
           align with the STP scenario description.
         - HIGH: Intentionally excluded STP scenarios require PR
@@ -355,7 +413,6 @@ knowledge_base:
           follow-up Jira link. Unjustified deletion blocks merge.
         - Jira/RFE-only tests skip STP comparison but must retain
           traceability links on modification, and justify deletion.
-          Historical labels and inherited links remain valid for legacy retention.
         - Partial coverage without justification blocks merge.
 
   # Enable code guidelines enforcement from AGENTS.md (single source of truth)
