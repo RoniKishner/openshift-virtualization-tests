@@ -146,6 +146,15 @@ class StorageClassConfig:
                 online_resize=True,
                 wffc=False,
             ),
+            StorageClass(
+                name=StorageClassNames.KUBEVIRT_CSI,
+                volume_mode=DataVolume.VolumeMode.BLOCK,
+                access_mode=DataVolume.AccessMode.RWX,
+                snapshot=False,
+                online_resize=True,
+                wffc=False,
+                data_import_cron_source_format="pvc",
+            ),
         ]
 
     def get_storage_config(self) -> dict[str, Any] | None:

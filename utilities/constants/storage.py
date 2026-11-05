@@ -29,6 +29,7 @@ class StorageClassNames:
     OCI_UHP = "oci-bv-uhp"
     GCP = "sp-balanced-storage"
     GCNV = "gcnv-flex"
+    KUBEVIRT_CSI = "kubevirt-csi"
 
 
 CDI_LABEL = Resource.ApiGroup.CDI_KUBEVIRT_IO
